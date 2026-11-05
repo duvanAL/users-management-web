@@ -1,0 +1,412 @@
+{
+  "name": "management-web-dev",
+  "services": {
+    "postgres": {
+      "image": "postgres:17-alpine",
+      "environment": {
+        "POSTGRES_DB": "management_dev",
+        "POSTGRES_PASSWORD": "dev-database-only"
+      },
+      "volumes": [
+        "pg-data:/var/lib/postgresql/data",
+        "../90-archivo/integraciones/web-dev/users-management-spring-boot-hexagonal-ddd/src/main/resources/schema.sql:/docker-entrypoint-initdb.d/01-users.sql:ro",
+        "../90-archivo/integraciones/web-dev/users-accounts-service/src/main/resources/schema.sql:/docker-entrypoint-initdb.d/02-accounts.sql:ro",
+        "../file-storage-service/migrations/001_file_storage.sql:/docker-entrypoint-initdb.d/03-files.sql:ro",
+        "../90-archivo/integraciones/web-dev/users-notification-service/src/main/resources/db/migration/V20261104_01__notification_history.sql:/docker-entrypoint-initdb.d/04-notifications.sql:ro",
+        "./infra/fixtures.sql:/docker-entrypoint-initdb.d/05-fixtures.sql:ro"
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "pg_isready -U postgres -d management_dev"
+        ],
+        "interval": "5s",
+        "retries": 30
+      }
+    },
+    "kafka": {
+      "image": "apache/kafka:3.9.1",
+      "environment": {
+        "KAFKA_NODE_ID": "1",
+        "KAFKA_PROCESS_ROLES": "broker,controller",
+        "KAFKA_LISTENERS": "PLAINTEXT://:9092,CONTROLLER://:9093",
+        "KAFKA_ADVERTISED_LISTENERS": "PLAINTEXT://kafka:9092",
+        "KAFKA_LISTENER_SECURITY_PROTOCOL_MAP": "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT",
+        "KAFKA_CONTROLLER_QUORUM_VOTERS": "1@kafka:9093",
+        "KAFKA_CONTROLLER_LISTENER_NAMES": "CONTROLLER",
+        "KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR": "1",
+        "KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR": "1",
+        "KAFKA_TRANSACTION_STATE_LOG_MIN_ISR": "1",
+        "KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS": "0",
+        "KAFKA_AUTO_CREATE_TOPICS_ENABLE": "false",
+        "KAFKA_HEAP_OPTS": "-Xms128m -Xmx384m"
+      }
+    },
+    "opensearch": {
+      "image": "opensearchproject/opensearch:3.6.0",
+      "environment": {
+        "discovery.type": "single-node",
+        "DISABLE_SECURITY_PLUGIN": "true",
+        "DISABLE_INSTALL_DEMO_CONFIG": "true",
+        "OPENSEARCH_JAVA_OPTS": "-Xms256m -Xmx256m"
+      },
+      "volumes": [
+        "os-data:/usr/share/opensearch/data"
+      ],
+      "ports": [
+        "127.0.0.1:18084:8084"
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD-SHELL",
+          "curl -fsS http://localhost:9200/_cluster/health >/dev/null"
+        ],
+        "interval": "10s",
+        "retries": 40,
+        "start_period": "30s"
+      }
+    },
+    "valkey": {
+      "image": "valkey/valkey:8-alpine",
+      "command": [
+        "valkey-server",
+        "--maxmemory",
+        "64mb",
+        "--maxmemory-policy",
+        "allkeys-lru"
+      ]
+    },
+    "s3": {
+      "image": "adobe/s3mock:5.2.3",
+      "environment": {
+        "COM_ADOBE_TESTING_S3MOCK_STORE_RETAIN_FILES_ON_EXIT": "true"
+      },
+      "volumes": [
+        "s3-data:/s3mock"
+      ]
+    },
+    "mail": {
+      "image": "node:24.22.0-alpine",
+      "command": [
+        "node",
+        "/dev/mock-mail.mjs"
+      ],
+      "volumes": [
+        "./infra/mock-mail.mjs:/dev/mock-mail.mjs:ro"
+      ],
+      "ports": [
+        "127.0.0.1:18086:8086"
+      ]
+    },
+    "bootstrap": {
+      "image": "management-web-dev-files:local",
+      "build": {
+        "context": "../file-storage-service"
+      },
+      "entrypoint": [
+        "node",
+        "/dev/bootstrap.mjs"
+      ],
+      "volumes": [
+        "./infra/bootstrap.mjs:/dev/bootstrap.mjs:ro",
+        "../users-search-service/deployment:/snapshots:ro"
+      ],
+      "depends_on": {
+        "postgres": {
+          "condition": "service_healthy"
+        },
+        "kafka": {
+          "condition": "service_started"
+        },
+        "opensearch": {
+          "condition": "service_healthy"
+        },
+        "s3": {
+          "condition": "service_started"
+        }
+      }
+    },
+    "users": {
+      "build": {
+        "context": "../90-archivo/integraciones/web-dev/users-management-spring-boot-hexagonal-ddd"
+      },
+      "environment": {
+        "JWT_SECRET": "ZGV2LW9ubHktand0LXNpZ25pbmcta2V5LWZvci1tYW5hZ2VtZW50LWxvY2FsLWVudmlyb25tZW50LTIwMjYtMDAwMQ==",
+        "APP_KAFKA_ENABLED": "true",
+        "KAFKA_BOOTSTRAP_SERVERS": "kafka:9092",
+        "KAFKA_SECURITY_PROTOCOL": "PLAINTEXT",
+        "KAFKA_USERNAME": "dev-only",
+        "KAFKA_PASSWORD": "dev-only",
+        "SPRING_PROFILES_ACTIVE": "local",
+        "APP_PROFILE": "local",
+        "JAVA_TOOL_OPTIONS": "-Xms64m -Xmx256m",
+        "PORT": "8080",
+        "APP_DOMAIN_EVENTS_ENABLED": "true",
+        "APP_EMAIL_ENABLED": "false",
+        "DB_HOST": "postgres",
+        "DB_PORT": "5432",
+        "DB_NAME": "management_dev",
+        "DB_USERNAME": "postgres",
+        "DB_PASSWORD": "dev-database-only",
+        "DB_SSLMODE": "disable",
+        "APP_CACHE_ENABLED": "true",
+        "VALKEY_HOST": "valkey",
+        "VALKEY_PORT": "6379",
+        "VALKEY_SSL_ENABLED": "false",
+        "APP_FILE_STORAGE_ENABLED": "true",
+        "FILE_STORAGE_API_URL": "http://files:8083",
+        "FILE_STORAGE_ALLOW_LOCAL_HTTP": "true",
+        "HTTP_MULTIPART_MAX_FILE_SIZE": "10MB",
+        "HTTP_MULTIPART_MAX_REQUEST_SIZE": "12MB"
+      },
+      "depends_on": {
+        "bootstrap": {
+          "condition": "service_completed_successfully"
+        }
+      },
+      "ports": [
+        "127.0.0.1:18080:8080"
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "curl",
+          "-fsS",
+          "http://localhost:8080/health"
+        ],
+        "interval": "10s",
+        "timeout": "5s",
+        "retries": 40,
+        "start_period": "30s"
+      }
+    },
+    "accounts": {
+      "build": {
+        "context": "../90-archivo/integraciones/web-dev/users-accounts-service"
+      },
+      "environment": {
+        "JWT_SECRET": "ZGV2LW9ubHktand0LXNpZ25pbmcta2V5LWZvci1tYW5hZ2VtZW50LWxvY2FsLWVudmlyb25tZW50LTIwMjYtMDAwMQ==",
+        "APP_KAFKA_ENABLED": "true",
+        "KAFKA_BOOTSTRAP_SERVERS": "kafka:9092",
+        "KAFKA_SECURITY_PROTOCOL": "PLAINTEXT",
+        "KAFKA_USERNAME": "dev-only",
+        "KAFKA_PASSWORD": "dev-only",
+        "SPRING_PROFILES_ACTIVE": "local",
+        "APP_PROFILE": "local",
+        "JAVA_TOOL_OPTIONS": "-Xms64m -Xmx256m",
+        "PORT": "8081",
+        "ACCOUNTS_DATABASE_URL": "jdbc:postgresql://postgres:5432/management_dev",
+        "ACCOUNTS_DATABASE_USERNAME": "postgres",
+        "ACCOUNTS_DATABASE_PASSWORD": "dev-database-only",
+        "DB_SCHEMA_INIT_MODE": "never",
+        "USERS_API_URL": "http://users:8080"
+      },
+      "depends_on": {
+        "bootstrap": {
+          "condition": "service_completed_successfully"
+        }
+      },
+      "ports": [
+        "127.0.0.1:18081:8081"
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "curl",
+          "-fsS",
+          "http://localhost:8081/health"
+        ],
+        "interval": "10s",
+        "timeout": "5s",
+        "retries": 40,
+        "start_period": "30s"
+      }
+    },
+    "notifications": {
+      "build": {
+        "context": "../90-archivo/integraciones/web-dev/users-notification-service"
+      },
+      "environment": {
+        "JWT_SECRET": "ZGV2LW9ubHktand0LXNpZ25pbmcta2V5LWZvci1tYW5hZ2VtZW50LWxvY2FsLWVudmlyb25tZW50LTIwMjYtMDAwMQ==",
+        "APP_KAFKA_ENABLED": "true",
+        "KAFKA_BOOTSTRAP_SERVERS": "kafka:9092",
+        "KAFKA_SECURITY_PROTOCOL": "PLAINTEXT",
+        "KAFKA_USERNAME": "dev-only",
+        "KAFKA_PASSWORD": "dev-only",
+        "SPRING_PROFILES_ACTIVE": "local",
+        "APP_PROFILE": "local",
+        "JAVA_TOOL_OPTIONS": "-Xms64m -Xmx256m",
+        "PORT": "8082",
+        "APP_HISTORY_ENABLED": "true",
+        "NOTIFICATIONS_DATABASE_URL": "jdbc:postgresql://postgres:5432/management_dev",
+        "NOTIFICATIONS_DATABASE_USERNAME": "postgres",
+        "NOTIFICATIONS_DATABASE_PASSWORD": "dev-database-only",
+        "BREVO_BASE_URL": "http://mail:8086",
+        "BREVO_API_KEY": "dev-only-key",
+        "BREVO_FROM_EMAIL": "notifications@dev.local",
+        "BREVO_FROM_ADDRESS": "notifications@dev.local",
+        "BREVO_FROM_NAME": "Gestion Dev"
+      },
+      "depends_on": {
+        "bootstrap": {
+          "condition": "service_completed_successfully"
+        }
+      },
+      "ports": [
+        "127.0.0.1:18082:8082"
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "curl",
+          "-fsS",
+          "http://localhost:8082/health"
+        ],
+        "interval": "10s",
+        "timeout": "5s",
+        "retries": 40,
+        "start_period": "30s"
+      }
+    },
+    "files": {
+      "image": "management-web-dev-files:local",
+      "build": {
+        "context": "../file-storage-service"
+      },
+      "environment": {
+        "JWT_SECRET": "ZGV2LW9ubHktand0LXNpZ25pbmcta2V5LWZvci1tYW5hZ2VtZW50LWxvY2FsLWVudmlyb25tZW50LTIwMjYtMDAwMQ==",
+        "APP_KAFKA_ENABLED": "true",
+        "KAFKA_BOOTSTRAP_SERVERS": "kafka:9092",
+        "KAFKA_SECURITY_PROTOCOL": "PLAINTEXT",
+        "KAFKA_USERNAME": "dev-only",
+        "KAFKA_PASSWORD": "dev-only",
+        "SPRING_PROFILES_ACTIVE": "local",
+        "APP_PROFILE": "local",
+        "JAVA_TOOL_OPTIONS": "-Xms64m -Xmx256m",
+        "PORT": "8083",
+        "FILE_DATABASE_URL": "postgresql://postgres:dev-database-only@postgres:5432/management_dev",
+        "USERS_API_URL": "http://users:8080",
+        "B2_ENDPOINT": "http://s3:9090",
+        "B2_REGION": "us-east-1",
+        "B2_BUCKET": "users-files-dev",
+        "B2_APPLICATION_KEY_ID": "dev-only",
+        "B2_APPLICATION_KEY": "dev-only-key"
+      },
+      "depends_on": {
+        "bootstrap": {
+          "condition": "service_completed_successfully"
+        }
+      },
+      "ports": [
+        "127.0.0.1:18083:8083"
+      ],
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:8083/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+        ],
+        "interval": "10s",
+        "timeout": "5s",
+        "retries": 40,
+        "start_period": "30s"
+      }
+    },
+    "search": {
+      "build": {
+        "context": "../users-search-service"
+      },
+      "network_mode": "service:opensearch",
+      "environment": {
+        "JWT_SECRET": "ZGV2LW9ubHktand0LXNpZ25pbmcta2V5LWZvci1tYW5hZ2VtZW50LWxvY2FsLWVudmlyb25tZW50LTIwMjYtMDAwMQ==",
+        "APP_KAFKA_ENABLED": "true",
+        "KAFKA_BOOTSTRAP_SERVERS": "kafka:9092",
+        "KAFKA_SECURITY_PROTOCOL": "PLAINTEXT",
+        "KAFKA_USERNAME": "dev-only",
+        "KAFKA_PASSWORD": "dev-only",
+        "SPRING_PROFILES_ACTIVE": "local",
+        "APP_PROFILE": "local",
+        "JAVA_TOOL_OPTIONS": "-Xms64m -Xmx256m",
+        "PORT": "8084",
+        "OPENSEARCH_URL": "http://127.0.0.1:9200",
+        "OPENSEARCH_USERNAME": "dev-only",
+        "OPENSEARCH_PASSWORD": "dev-only"
+      },
+      "depends_on": {
+        "bootstrap": {
+          "condition": "service_completed_successfully"
+        }
+      },
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:8084/health').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+        ],
+        "interval": "10s",
+        "timeout": "5s",
+        "retries": 40,
+        "start_period": "30s"
+      }
+    },
+    "web": {
+      "build": {
+        "context": ".",
+        "dockerfile": "Dockerfile.dev"
+      },
+      "environment": {
+        "JWT_SECRET": "ZGV2LW9ubHktand0LXNpZ25pbmcta2V5LWZvci1tYW5hZ2VtZW50LWxvY2FsLWVudmlyb25tZW50LTIwMjYtMDAwMQ==",
+        "WEB_SESSION_KEY": "ZGV2LW9ubHktc2Vzc2lvbi1rZXktMzItYnl0ZXMtMDE=",
+        "USERS_URL": "http://users:8080",
+        "ACCOUNTS_URL": "http://accounts:8081",
+        "FILES_URL": "http://files:8083",
+        "SEARCH_URL": "http://opensearch:8084",
+        "NOTIFICATIONS_URL": "http://notifications:8082",
+        "FILE_DOWNLOAD_ORIGIN": "http://s3:9090",
+        "WATCHPACK_POLLING": "true"
+      },
+      "volumes": [
+        "./src:/app/src"
+      ],
+      "ports": [
+        "127.0.0.1:3000:3000"
+      ],
+      "depends_on": {
+        "users": {
+          "condition": "service_healthy"
+        },
+        "accounts": {
+          "condition": "service_healthy"
+        },
+        "notifications": {
+          "condition": "service_healthy"
+        },
+        "files": {
+          "condition": "service_healthy"
+        },
+        "search": {
+          "condition": "service_healthy"
+        }
+      },
+      "healthcheck": {
+        "test": [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/login').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"
+        ],
+        "interval": "10s",
+        "timeout": "5s",
+        "retries": 40,
+        "start_period": "30s"
+      }
+    }
+  },
+  "volumes": {
+    "pg-data": {},
+    "os-data": {},
+    "s3-data": {}
+  }
+}
