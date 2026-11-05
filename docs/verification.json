@@ -1,0 +1,48 @@
+{
+  "environment": "local Dev only",
+  "date": "2026-11-04",
+  "frontend": {
+    "typecheck": "passed",
+    "production_build": "passed",
+    "http_integration": {
+      "passed": 6,
+      "failed": 0,
+      "report": "../playwright-report/index.html"
+    }
+  },
+  "backends": {
+    "users": {
+      "maven_verify": "passed",
+      "tests": 305
+    },
+    "accounts": {
+      "maven_verify": "passed",
+      "tests": 11
+    },
+    "notifications": {
+      "maven_verify": "passed",
+      "tests": 28
+    }
+  },
+  "browser_checks": [
+    "admin login and dashboard",
+    "users list",
+    "owner selection",
+    "indexed search",
+    "file upload through chooser",
+    "download through BFF",
+    "replace with revision header",
+    "profile tabs with arrow keys",
+    "mobile navigation and Escape focus return"
+  ],
+  "providers": {
+    "S3": "local versioned S3Mock",
+    "email": "local accepting/failing mock",
+    "database": "local PostgreSQL",
+    "events": "local Kafka",
+    "search": "local OpenSearch",
+    "cache": "local Valkey"
+  },
+  "cloud_modified": false,
+  "deployment_performed": false
+}

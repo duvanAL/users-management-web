@@ -1,0 +1,43 @@
+{
+  "date": "2026-11-04",
+  "scope": "Polish of the immersive login in local Dev",
+  "checks": {
+    "typescript": "passed",
+    "production_build": "passed",
+    "format": "passed",
+    "api_integration": {
+      "passed": 6,
+      "failed": 0
+    },
+    "browser_login": {
+      "passed": 4,
+      "failed": 0,
+      "browser": "installed Chrome (channel: chrome)"
+    },
+    "responsive_no_horizontal_overflow": ["1440px", "1100px", "390px"],
+    "text_below_11px": 0,
+    "browser_console_errors": "only the expected 401 from the rejected-credentials step",
+    "reduced_motion_reflects_fields_and_stays_static": true,
+    "keyboard_tab_order": "passed",
+    "caps_lock_notice": "passed with a synthetic key event",
+    "orbits_contract_on_done": "passed with navigation held for measurement"
+  },
+  "not_exercised": [
+    "429 and network failures keeping the fields unmarked",
+    "slow-frame resolution fallback"
+  ],
+  "screenshots": [
+    "screenshots/login-pulido-desktop.png",
+    "screenshots/login-pulido-movil.png",
+    "screenshots/login-pulido-error-desktop.png",
+    "screenshots/login-pulido-error-movil.png"
+  ],
+  "modified_sources": [
+    "src/app/login/page.tsx",
+    "src/components/login-network.tsx",
+    "src/app/globals.css",
+    "tests/login.spec.ts",
+    "DESIGN.md"
+  ],
+  "environment": "Local Docker stack; no cloud changes or deployment"
+}

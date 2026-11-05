@@ -1,0 +1,31 @@
+{
+  "date": "2026-11-04",
+  "scope": "Immersive login redesign in local Dev",
+  "confirmed_direction": "More visual and immersive; animation as protagonist",
+  "checks": {
+    "typescript": "passed",
+    "production_build": "passed",
+    "format": "passed",
+    "authentication_integration": {
+      "passed": 2,
+      "failed": 0
+    },
+    "browser_login_to_dashboard": "passed",
+    "password_visibility_toggle": "passed",
+    "full_motion_changes_frames": true,
+    "reduced_motion_stable_after_settling": true,
+    "responsive_mobile_no_horizontal_overflow": true,
+    "browser_console_errors": 0
+  },
+  "screenshots": [
+    "screenshots/login-inmersivo-desktop.png",
+    "screenshots/login-inmersivo-movil.png"
+  ],
+  "modified_sources": [
+    "src/app/login/page.tsx",
+    "src/components/login-network.tsx",
+    "src/app/globals.css",
+    "DESIGN.md"
+  ],
+  "environment": "Original local Docker stack restored; no cloud changes or deployment"
+}
