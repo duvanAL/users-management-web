@@ -32,3 +32,5 @@ Para comprobar las fuentes sin GitHub desde el workspace existente: `python infr
 Requerir en las reglas de rama Quality and coverage, Desktop and mobile browsers y Production container, revisión de PR y conversaciones resueltas. CODEOWNERS identifica rutas sensibles pero por sí solo no obliga una revisión. Las reglas se configuran en GitHub Settings y requieren los nombres de checks de una primera ejecución. Full stack debe pasar cuando cambian contratos; hasta configurar su token, su validación cloud queda pendiente.
 
 La imagen de producción todavía necesita secretos y URLs correctas para ofrecer las funciones autenticadas. No contiene credenciales ni arranca Docker Dev. No hay publicación de imagen ni despliegue automático en estos workflows.
+
+Los navegadores de CI usan la imagen oficial mcr.microsoft.com/playwright:v1.64.1-noble fijada por digest, con dependencias preinstaladas. Mantener esa versión alineada con @playwright/test al actualizarlo.
