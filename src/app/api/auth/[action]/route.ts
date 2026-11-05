@@ -57,7 +57,12 @@ async function handle(
         if (e instanceof HttpError) throw e;
         throw new HttpError(400, "Solicitud inválida.");
       }
-      if (typeof body.email !== "string" || typeof body.password !== "string")
+      if (
+        !body ||
+        typeof body !== "object" ||
+        typeof body.email !== "string" ||
+        typeof body.password !== "string"
+      )
         throw new HttpError(400, "Ingresa correo y contraseña.");
       const r = await upstream("users", "/api/auth/login", undefined, {
         method: "POST",
