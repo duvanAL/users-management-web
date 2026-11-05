@@ -1,0 +1,239 @@
+diff --git a/pom.xml b/pom.xml
+index 0f98ffe..ef19ddb 100644
+--- a/pom.xml
++++ b/pom.xml
+@@ -5,6 +5,10 @@
+   <groupId>com.jcaa</groupId><artifactId>users-notification-service</artifactId><version>1.0.0</version>
+   <properties><java.version>17</java.version></properties>
+   <dependencies>
++    <dependency><groupId>org.postgresql</groupId><artifactId>postgresql</artifactId><version>42.7.13</version><scope>runtime</scope></dependency>
++    <dependency><groupId>io.jsonwebtoken</groupId><artifactId>jjwt-api</artifactId><version>0.13.0</version></dependency>
++    <dependency><groupId>io.jsonwebtoken</groupId><artifactId>jjwt-impl</artifactId><version>0.13.0</version><scope>runtime</scope></dependency>
++    <dependency><groupId>io.jsonwebtoken</groupId><artifactId>jjwt-jackson</artifactId><version>0.13.0</version><scope>runtime</scope></dependency>
+     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-web</artifactId></dependency>
+     <dependency><groupId>org.springframework.boot</groupId><artifactId>spring-boot-starter-actuator</artifactId></dependency>
+     <dependency><groupId>org.springframework.kafka</groupId><artifactId>spring-kafka</artifactId></dependency>
+diff --git a/src/main/java/com/jcaa/notifications/NotificationProcessor.java b/src/main/java/com/jcaa/notifications/NotificationProcessor.java
+index de34c4c..de9d519 100644
+--- a/src/main/java/com/jcaa/notifications/NotificationProcessor.java
++++ b/src/main/java/com/jcaa/notifications/NotificationProcessor.java
+@@ -29,6 +29,8 @@ public class NotificationProcessor {
+   private final String resultTopic;
+   private final String dlqTopic;
+   private final int timeout;
++  @org.springframework.beans.factory.annotation.Autowired(required = false)
++  private com.jcaa.notifications.application.port.out.NotificationHistoryPort history;
+ 
+   public NotificationProcessor(
+       NotificationEventRequestMapper mapper,
+@@ -52,11 +54,15 @@ public class NotificationProcessor {
+       groupId = "${KAFKA_NOTIFY_GROUP_ID:notify-service}")
+   public void process(String raw) {
+     ProcessNotificationCommand command = mapper.toCommand(raw);
++    if (history != null && !"user.deleted".equals(command.eventName())) {
++      history.record(command.eventId(), command.payload().get("userId"), command.eventName(), "PENDING", null);
++    }
+     NotificationProcessingResult result = useCase.process(command);
+     if (result.status() == NotificationProcessingResult.Status.IGNORED) {
+       LOG.info("Notification intentionally ignored. id={} event={}", result.eventId(), result.eventName());
+       return; // No provider call, SENT, FAILED or DLQ for a valid deleted event.
+     }
++    if (history != null) history.record(command.eventId(), command.payload().get("userId"), command.eventName(), "SENT", null);
+     outcome(result.eventId(), "SENT", null);
+     LOG.info("Notification processed. id={} event={}", result.eventId(), result.eventName());
+   }
+@@ -80,11 +86,15 @@ public class NotificationProcessor {
+             "failedAt",
+             Instant.now()));
+     UUID eventId = null;
++    ProcessNotificationCommand recovered = null;
+     try {
+-      eventId = mapper.toCommand(String.valueOf(record.value())).eventId();
++      recovered = mapper.toCommand(String.valueOf(record.value()));
++      eventId = recovered.eventId();
+     } catch (RuntimeException ignored) {
+       /* malformed payload has no trusted correlation id */
+     }
++    if (history != null && recovered != null) history.record(eventId, recovered.payload().get("userId"),
++        recovered.eventName(), "FAILED", "PROCESSING_RETRIES_EXHAUSTED");
+     if (eventId != null) outcome(eventId, "FAILED", "PROCESSING_RETRIES_EXHAUSTED");
+     LOG.warn(
+         "Notification rejected after retries. topic={} partition={} offset={}",
+diff --git a/src/main/java/com/jcaa/notifications/application/port/out/NotificationHistoryPort.java b/src/main/java/com/jcaa/notifications/application/port/out/NotificationHistoryPort.java
+new file mode 100644
+--- /dev/null
++++ b/src/main/java/com/jcaa/notifications/application/port/out/NotificationHistoryPort.java
+@@ -0,0 +1,7 @@
++package com.jcaa.notifications.application.port.out;
++
++import java.util.UUID;
++
++public interface NotificationHistoryPort {
++  void record(UUID eventId, String userId, String eventName, String status, String failureCode);
++}
+diff --git a/src/main/java/com/jcaa/notifications/infrastructure/history/NotificationHistoryController.java b/src/main/java/com/jcaa/notifications/infrastructure/history/NotificationHistoryController.java
+new file mode 100644
+--- /dev/null
++++ b/src/main/java/com/jcaa/notifications/infrastructure/history/NotificationHistoryController.java
+@@ -0,0 +1,47 @@
++package com.jcaa.notifications.infrastructure.history;
++
++import io.jsonwebtoken.Jwts;
++import io.jsonwebtoken.security.Keys;
++import java.util.Base64;
++import java.util.List;
++import javax.crypto.SecretKey;
++import org.springframework.beans.factory.annotation.Value;
++import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
++import org.springframework.http.HttpStatus;
++import org.springframework.web.bind.annotation.GetMapping;
++import org.springframework.web.bind.annotation.RequestHeader;
++import org.springframework.web.bind.annotation.RequestParam;
++import org.springframework.web.bind.annotation.RestController;
++import org.springframework.web.server.ResponseStatusException;
++
++@RestController
++@ConditionalOnProperty(name = "app.history.enabled", havingValue = "true")
++public class NotificationHistoryController {
++  private final NotificationHistoryStore history;
++  private final SecretKey key;
++  public NotificationHistoryController(NotificationHistoryStore history,@Value("${JWT_SECRET}") String secret) {
++    this.history=history;
++    this.key=Keys.hmacShaKeyFor(Base64.getDecoder().decode(secret));
++  }
++  @GetMapping("/api/notifications")
++  public NotificationHistoryStore.Page list(@RequestHeader(value="Authorization",required=false) String authorization,
++      @RequestParam(required=false) String userId,@RequestParam(required=false) String status,
++      @RequestParam(defaultValue="30") int limit,@RequestParam(defaultValue="0") int offset) {
++    String subject;
++    String role;
++    try {
++      if (authorization==null || !authorization.startsWith("Bearer ")) throw new IllegalArgumentException();
++      var claims=Jwts.parser().verifyWith(key).build().parseSignedClaims(authorization.substring(7)).getPayload();
++      subject=claims.getSubject(); role=claims.get("role",String.class);
++      if(subject==null || claims.getExpiration()==null || !List.of("ADMIN","REVIEWER","MEMBER").contains(role)) throw new IllegalArgumentException();
++    } catch(RuntimeException error) { throw new ResponseStatusException(HttpStatus.UNAUTHORIZED); }
++    if ("MEMBER".equals(role)) {
++      if(userId!=null && !subject.equals(userId)) throw new ResponseStatusException(HttpStatus.FORBIDDEN);
++      userId=subject;
++    }
++    if(limit<1 || limit>100 || offset<0 || offset>10000 ||
++        (status!=null && !List.of("PENDING","SENT","FAILED").contains(status)))
++      throw new ResponseStatusException(HttpStatus.BAD_REQUEST);
++    return history.list(userId,status,limit,offset);
++  }
++}
+diff --git a/src/main/java/com/jcaa/notifications/infrastructure/history/NotificationHistoryStore.java b/src/main/java/com/jcaa/notifications/infrastructure/history/NotificationHistoryStore.java
+new file mode 100644
+--- /dev/null
++++ b/src/main/java/com/jcaa/notifications/infrastructure/history/NotificationHistoryStore.java
+@@ -0,0 +1,72 @@
++package com.jcaa.notifications.infrastructure.history;
++
++import com.jcaa.notifications.application.port.out.NotificationHistoryPort;
++import java.sql.Connection;
++import java.sql.DriverManager;
++import java.sql.SQLException;
++import java.util.ArrayList;
++import java.util.List;
++import java.util.UUID;
++import org.springframework.beans.factory.annotation.Value;
++import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
++import org.springframework.stereotype.Component;
++
++@Component
++@ConditionalOnProperty(name = "app.history.enabled", havingValue = "true")
++public class NotificationHistoryStore implements NotificationHistoryPort {
++  private final String url;
++  private final String username;
++  private final String password;
++  public NotificationHistoryStore(
++      @Value("${NOTIFICATIONS_DATABASE_URL}") String url,
++      @Value("${NOTIFICATIONS_DATABASE_USERNAME}") String username,
++      @Value("${NOTIFICATIONS_DATABASE_PASSWORD}") String password) {
++    if (!url.startsWith("jdbc:postgresql:")) throw new IllegalArgumentException("PostgreSQL required");
++    this.url = url;
++    this.username = username;
++    this.password = password;
++  }
++  private Connection connect() throws SQLException {
++    return DriverManager.getConnection(url, username, password);
++  }
++  @Override
++  public void record(UUID eventId, String userId, String eventName, String status, String failureCode) {
++    try (var connection = connect(); var statement = connection.prepareStatement(
++        "INSERT INTO notifications.delivery_history (event_id,user_id,event_name,status,failure_code)"
++        + " VALUES (?,?,?,?,?) ON CONFLICT(event_id) DO UPDATE SET status=EXCLUDED.status,"
++        + " failure_code=EXCLUDED.failure_code,updated_at=CURRENT_TIMESTAMP"
++        + " WHERE notifications.delivery_history.status <> 'SENT'")) {
++      statement.setObject(1, eventId);
++      statement.setString(2, userId);
++      statement.setString(3, eventName);
++      statement.setString(4, status);
++      statement.setString(5, failureCode);
++      statement.executeUpdate();
++    } catch (SQLException error) { throw new IllegalStateException("Notification history unavailable"); }
++  }
++  public record Entry(UUID id, String userId, String eventName, String status, String failureCode, String createdAt, String updatedAt) {}
++  public record Page(List<Entry> items, long total) {}
++  public Page list(String userId, String status, int limit, int offset) {
++    String filter = " WHERE (?::text IS NULL OR user_id=?) AND (?::text IS NULL OR status=?)";
++    try (var connection = connect(); var query = connection.prepareStatement(
++        "SELECT * FROM notifications.delivery_history" + filter
++        + " ORDER BY created_at DESC,event_id LIMIT ? OFFSET ?");
++        var count = connection.prepareStatement("SELECT count(*) FROM notifications.delivery_history" + filter)) {
++      connection.setReadOnly(true);
++      connection.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ);
++      connection.setAutoCommit(false);
++      for (var statement : List.of(query, count)) {
++        statement.setString(1,userId); statement.setString(2,userId);
++        statement.setString(3,status); statement.setString(4,status);
++      }
++      query.setInt(5,limit); query.setInt(6,offset);
++      List<Entry> entries = new ArrayList<>();
++      try (var rows = query.executeQuery()) {
++        while (rows.next()) entries.add(new Entry(rows.getObject("event_id",UUID.class), rows.getString("user_id"),
++            rows.getString("event_name"),rows.getString("status"),rows.getString("failure_code"),
++            rows.getTimestamp("created_at").toInstant().toString(),rows.getTimestamp("updated_at").toInstant().toString()));
++      }
++      try (var rows = count.executeQuery()) { rows.next(); return new Page(entries,rows.getLong(1)); }
++    } catch (SQLException error) { throw new IllegalStateException("Notification history unavailable"); }
++  }
++}
+diff --git a/src/main/resources/db/migration/V20261104_01__notification_history.sql b/src/main/resources/db/migration/V20261104_01__notification_history.sql
+new file mode 100644
+--- /dev/null
++++ b/src/main/resources/db/migration/V20261104_01__notification_history.sql
+@@ -0,0 +1,11 @@
++CREATE SCHEMA IF NOT EXISTS notifications;
++CREATE TABLE IF NOT EXISTS notifications.delivery_history (
++  event_id UUID PRIMARY KEY,
++  user_id VARCHAR(256),
++  event_name VARCHAR(80) NOT NULL,
++  status VARCHAR(20) NOT NULL CHECK (status IN ('PENDING','SENT','FAILED')),
++  failure_code VARCHAR(100),
++  created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP,
++  updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
++);
++CREATE INDEX IF NOT EXISTS delivery_history_owner ON notifications.delivery_history(user_id,created_at DESC);
+diff --git a/src/test/java/com/jcaa/notifications/NotificationHistoryAuthorizationTest.java b/src/test/java/com/jcaa/notifications/NotificationHistoryAuthorizationTest.java
+new file mode 100644
+--- /dev/null
++++ b/src/test/java/com/jcaa/notifications/NotificationHistoryAuthorizationTest.java
+@@ -0,0 +1,16 @@
++package com.jcaa.notifications;
++import static org.assertj.core.api.Assertions.*;
++import static org.mockito.Mockito.*;
++import com.jcaa.notifications.infrastructure.history.*;
++import io.jsonwebtoken.Jwts;
++import io.jsonwebtoken.security.Keys;
++import java.util.*;
++import org.junit.jupiter.api.Test;
++import org.springframework.web.server.ResponseStatusException;
++class NotificationHistoryAuthorizationTest {
++ static final String SECRET="dGVzdC1vbmx5LWp3dC1zZWNyZXQtd2l0aC1hdC1sZWFzdC0zMi1ieXRlcw==";
++ String token(String role,Date expiration){return "Bearer "+Jwts.builder().subject("owner-1").claim("role",role).issuedAt(new Date()).expiration(expiration).signWith(Keys.hmacShaKeyFor(Base64.getDecoder().decode(SECRET))).compact();}
++ @Test void memberIsAlwaysScopedAndCannotChooseAnotherOwner(){var store=mock(NotificationHistoryStore.class);var c=new NotificationHistoryController(store,SECRET);var auth=token("MEMBER",new Date(System.currentTimeMillis()+60000));c.list(auth,null,null,20,0);verify(store).list("owner-1",null,20,0);assertThatThrownBy(()->c.list(auth,"someone-else",null,20,0)).isInstanceOf(ResponseStatusException.class).hasMessageContaining("403");}
++ @Test void missingExpiredAndUnknownRoleAreRejected(){var store=mock(NotificationHistoryStore.class);var c=new NotificationHistoryController(store,SECRET);for(String auth:Arrays.asList(null,"Bearer invalid",token("ADMIN",new Date(1)),token("ROOT",new Date(System.currentTimeMillis()+60000))))assertThatThrownBy(()->c.list(auth,null,null,20,0)).isInstanceOf(ResponseStatusException.class).hasMessageContaining("401");verifyNoInteractions(store);}
++ @Test void staffMayFilterButLimitsAndStatusesAreValidated(){var store=mock(NotificationHistoryStore.class);var c=new NotificationHistoryController(store,SECRET);var auth=token("REVIEWER",new Date(System.currentTimeMillis()+60000));c.list(auth,"owner-2","SENT",20,0);verify(store).list("owner-2","SENT",20,0);assertThatThrownBy(()->c.list(auth,null,"UNKNOWN",20,0)).isInstanceOf(ResponseStatusException.class).hasMessageContaining("400");assertThatThrownBy(()->c.list(auth,null,null,101,0)).isInstanceOf(ResponseStatusException.class).hasMessageContaining("400");}
++}

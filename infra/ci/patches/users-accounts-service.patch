@@ -1,0 +1,36 @@
+diff --git a/src/main/java/com/jcaa/accounts/infrastructure/AccountSecurity.java b/src/main/java/com/jcaa/accounts/infrastructure/AccountSecurity.java
+index 4a389b5..eeb66a3 100644
+--- a/src/main/java/com/jcaa/accounts/infrastructure/AccountSecurity.java
++++ b/src/main/java/com/jcaa/accounts/infrastructure/AccountSecurity.java
+@@ -80,6 +80,8 @@ public class AccountSecurity {
+                     .permitAll()
+                     .requestMatchers(HttpMethod.POST, "/api/accounts")
+                     .hasRole("ADMIN")
++                    .requestMatchers(HttpMethod.GET, "/api/me/accounts")
++                    .authenticated()
+                     .requestMatchers(HttpMethod.GET, "/api/accounts", "/api/accounts/**")
+                     .hasAnyRole("ADMIN", "REVIEWER")
+                     .anyRequest()
+diff --git a/src/main/java/com/jcaa/accounts/infrastructure/PersonalAccountsController.java b/src/main/java/com/jcaa/accounts/infrastructure/PersonalAccountsController.java
+new file mode 100644
+--- /dev/null
++++ b/src/main/java/com/jcaa/accounts/infrastructure/PersonalAccountsController.java
+@@ -0,0 +1,18 @@
++package com.jcaa.accounts.infrastructure;
++
++import com.jcaa.accounts.application.AccountService;
++import com.jcaa.accounts.domain.Account;
++import java.util.List;
++import org.springframework.security.core.Authentication;
++import org.springframework.web.bind.annotation.GetMapping;
++import org.springframework.web.bind.annotation.RestController;
++
++@RestController
++public class PersonalAccountsController {
++  private final AccountService accounts;
++  public PersonalAccountsController(AccountService accounts) { this.accounts = accounts; }
++  @GetMapping("/api/me/accounts")
++  public List<Account> own(Authentication authentication) {
++    return accounts.forUser(authentication.getName());
++  }
++}

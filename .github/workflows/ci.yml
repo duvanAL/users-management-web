@@ -1,0 +1,78 @@
+name: CI
+on:
+  push:
+    branches: [main, develop, deploy]
+  pull_request:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+jobs:
+  quality:
+    name: Quality and coverage
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+      - run: npm audit --audit-level=high
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: unit-coverage
+          path: coverage/
+          retention-days: 14
+  browser:
+    name: Desktop and mobile browsers
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium firefox webkit
+      - run: npm run build
+      - run: npm run test:e2e
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: browser-reports
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+  container:
+    name: Production container
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - run: docker build -t management-web:ci .
+      - name: Check health and non-root runtime
+        run: |
+          docker run -d --name web -p 127.0.0.1:3000:3000 management-web:ci
+          for n in $(seq 1 30); do
+            if curl --fail http://localhost:3000/api/health; then break; fi
+            sleep 2
+          done
+          curl --fail http://localhost:3000/api/health
+          test "$(docker exec web id -u)" != "0"
+          curl --fail http://localhost:3000/login >/dev/null
+      - if: always()
+        run: docker logs web; docker rm -f web

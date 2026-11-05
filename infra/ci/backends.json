@@ -1,0 +1,30 @@
+[
+  {
+    "repository": "duvanAL/users-management-spring-boot-hexagonal-ddd",
+    "revision": "b03c8bea722f43b9c5286bff00f5744fda841202",
+    "destination": "90-archivo/integraciones/web-dev/users-management-spring-boot-hexagonal-ddd",
+    "patch": "infra/ci/patches/users-management-spring-boot-hexagonal-ddd.patch"
+  },
+  {
+    "repository": "duvanAL/users-accounts-service",
+    "revision": "12f43b9d5a735299cfd1c6154866ab28f411fc41",
+    "destination": "90-archivo/integraciones/web-dev/users-accounts-service",
+    "patch": "infra/ci/patches/users-accounts-service.patch"
+  },
+  {
+    "repository": "duvanAL/users-notification-service",
+    "revision": "5b496177e0d235c3e9351a3b7e36afa2bbe23eb2",
+    "destination": "90-archivo/integraciones/web-dev/users-notification-service",
+    "patch": "infra/ci/patches/users-notification-service.patch"
+  },
+  {
+    "repository": "duvanAL/file-storage-service",
+    "revision": "6e13696aa6246bbb22c93359a31044d0191a706e",
+    "destination": "file-storage-service"
+  },
+  {
+    "repository": "duvanAL/users-search-service",
+    "revision": "dbb8625e8a119a3af5480a5a5825688223b1d7ed",
+    "destination": "users-search-service"
+  }
+]

@@ -1,0 +1,48 @@
+name: Full stack
+on:
+  workflow_dispatch:
+permissions:
+  contents: read
+concurrency:
+  group: full-stack-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  integration:
+    if: github.ref == 'refs/heads/develop' || github.ref == 'refs/heads/main' || github.ref == 'refs/heads/deploy'
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@49933ea5288caeca8642d1e84afbd3f7d6820020 # v4
+        with:
+          node-version: "24"
+          cache: npm
+      - run: npm ci
+      - run: npx playwright install --with-deps chromium
+      - name: Prepare pinned sources
+        env:
+          BACKEND_READ_TOKEN: ${{ secrets.BACKEND_READ_TOKEN }}
+        run: python3 infra/ci/prepare-stack.py
+      - name: Start isolated services
+        run: docker compose -p management-ci -f .ci/compose.json up -d --build --wait --wait-timeout 600
+      - run: npm run test:stack
+      - name: Collect service diagnostics
+        if: always()
+        run: |
+          mkdir -p test-results
+          if test -f .ci/compose.json; then
+            docker compose -p management-ci -f .ci/compose.json ps > test-results/services.txt
+            docker compose -p management-ci -f .ci/compose.json logs --no-color --tail=150 > test-results/services.log
+          fi
+      - uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4
+        if: always()
+        with:
+          name: full-stack-reports
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+      - if: always()
+        run: if test -f .ci/compose.json; then docker compose -p management-ci -f .ci/compose.json down -v; fi
