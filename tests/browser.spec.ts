@@ -42,6 +42,7 @@ test("all workspace routes render without uncaught errors", async ({
   await page.locator('input[name="password"]').fill("DevAdmin123!");
   await page.locator(".login-submit").click();
   await expect(page).toHaveURL(/dashboard/);
+  await page.waitForLoadState("networkidle");
   for (const path of [
     "accounts",
     "users",
