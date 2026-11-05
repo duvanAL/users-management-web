@@ -1,6 +1,7 @@
 import { defineConfig, devices } from "@playwright/test";
 export default defineConfig({
   testDir: "./tests",
+  outputDir: "test-results/browser",
   testMatch: ["login.spec.ts", "browser.spec.ts"],
   fullyParallel: false,
   workers: 1,
@@ -9,7 +10,7 @@ export default defineConfig({
   timeout: 30000,
   reporter: [
     ["list"],
-    ["html", { open: "never" }],
+    ["html", { open: "never", outputFolder: "playwright-report/browser" }],
     ["junit", { outputFile: "test-results/junit.xml" }],
   ],
   use: {

@@ -176,7 +176,7 @@ describe("BFF boundaries", () => {
   });
   it("rejects arbitrary routes, invalid JSON and oversized requests", async () => {
     await actor();
-    expect((await gateway(req("/"), ctx("unknown", ["anything"]))).status).toBe(
+    expect((await gateway(req("/"), ctx("search", ["..", "..", "health"]))).status).toBe(
       403,
     );
     expect(

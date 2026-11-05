@@ -53,6 +53,7 @@ test("all workspace routes render without uncaught errors", async ({
     await page.goto("/" + path);
     await expect(page.locator("h1")).toBeVisible();
     await expect(page.locator("main")).toBeVisible();
+    await page.waitForLoadState("networkidle");
   }
   expect(errors).toEqual([]);
 });

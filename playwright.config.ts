@@ -1,6 +1,7 @@
 import { defineConfig } from "@playwright/test";
 export default defineConfig({
   testDir: "./tests",
+  outputDir: "test-results/stack",
   testMatch: ["api.spec.ts", "login.spec.ts"],
   fullyParallel: false,
   workers: 1,
