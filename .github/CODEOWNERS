@@ -1,0 +1,5 @@
+/.github/ @duvanAL
+/src/app/api/ @duvanAL
+/src/lib/server.ts @duvanAL
+/infra/ci/ @duvanAL
+/Dockerfile @duvanAL

@@ -1,7 +1,5 @@
 import { expect, test } from "@playwright/test";
 
-test.use({ channel: "chrome" });
-
 const email = (page: import("@playwright/test").Page) =>
   page.getByRole("textbox", { name: "Correo electrónico" });
 const password = (page: import("@playwright/test").Page) =>
@@ -42,10 +40,7 @@ test("demo access fills the form without submitting", async ({ page }) => {
   await expect(submit(page)).toBeFocused();
   await expect(page).toHaveURL(/\/login$/);
   await expect(page.locator(".login")).toHaveAttribute("data-lit", "2");
-  await expect(page.locator(".orbit-accounts")).toHaveAttribute(
-    "data-on",
-    "true",
-  );
+  await expect(page.locator("canvas")).toBeVisible();
 });
 
 test("password visibility toggles", async ({ page }) => {

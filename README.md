@@ -57,7 +57,7 @@ Se encuentran en worktrees separados, bajo `../90-archivo/integraciones/web-dev/
 - Notification Service — puerto de historial, adaptador JDBC y GET `/api/notifications`. El registro del historial se activa únicamente con `APP_HISTORY_ENABLED=true`. Está desactivado por defecto para conservar el despliegue actual. Migración explícita `V20261104_01__notification_history.sql`, aplicada por Compose. Conserva los contratos y tópicos existentes.
 - File Storage y Search — sin cambios de código para esta app. Se compilan sus fuentes existentes.
 
-No se hizo despliegue web, publicación de repositorio ni cambio de secretos cloud. Antes de desplegar se requiere un plan específico de accesos, migraciones, secretos, HTTPS, cookies seguras y proveedores reales.
+El código está publicado en GitHub. Todavía no se hizo despliegue web ni cambio de secretos cloud. Antes de desplegar se requiere un plan específico de accesos, migraciones, secretos, HTTPS, cookies seguras y proveedores reales.
 
 ## Variables del servidor web
 
@@ -100,3 +100,7 @@ La proyección inicial usa snapshots de PostgreSQL al arrancar el inicializador.
 ## Evidencia de esta entrega
 
 Ver `docs/verification.json` y las capturas en `docs/screenshots/`. Se verificaron 305 pruebas de usuarios, 11 de cuentas, 28 de notificaciones y seis escenarios HTTP completos de la app. El archivo artificial `ejemplo-ui.pdf` del administrador queda disponible como demostración de la carga y el reemplazo realizados en el navegador.
+
+## GitHub Actions y pruebas
+
+Consulta [CI.md](docs/CI.md) para los controles de calidad, cobertura, navegadores, contenedor, seguridad e integración con servicios reales. `npm run check` ejecuta calidad, pruebas unitarias y build. `npm run test:e2e` prueba la compilación de producción con proveedores simulados; `npm run test:stack` usa el entorno Dev completo.

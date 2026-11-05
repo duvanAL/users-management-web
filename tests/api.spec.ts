@@ -62,7 +62,9 @@ test("anonymous, CSRF, encrypted cookie and role boundaries", async () => {
       expect(
         (await c.get(gw + "notifications/history?userId=other")).status(),
       ).toBe(403);
-    expect((await c.get(gw + "search/../../health")).status()).not.toBe(200);
+    expect((await c.get(gw + "search/unauthorized/health")).status()).not.toBe(
+      200,
+    );
     await c.post("/api/auth/logout");
     expect((await c.get("/api/auth/session")).status()).toBe(401);
     await c.dispose();

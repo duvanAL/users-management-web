@@ -9,3 +9,6 @@ test-results/
 .dev/
 
 .dev-*.log
+
+coverage/
+.ci/
