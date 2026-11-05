@@ -1,7 +1,7 @@
 name: CI
 on:
   push:
-    branches: [main, develop, deploy]
+    branches: [main, deploy]
   pull_request:
   workflow_dispatch:
 permissions:

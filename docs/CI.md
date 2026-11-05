@@ -1,6 +1,6 @@
 # Integración continua
 
-CI ejecuta en push a develop/main/deploy y en PR, con permisos contents:read, acciones fijadas por SHA, cancelación de ejecuciones obsoletas y tiempos máximos. No despliega ni accede a credenciales cloud.
+CI ejecuta en push a main/deploy y en PR, con permisos contents:read, acciones fijadas por SHA, cancelación de ejecuciones obsoletas y tiempos máximos. No despliega ni accede a credenciales cloud.
 
 ## Controles automáticos
 
@@ -34,3 +34,9 @@ Requerir en las reglas de rama Quality and coverage, Desktop and mobile browsers
 La imagen de producción todavía necesita secretos y URLs correctas para ofrecer las funciones autenticadas. No contiene credenciales ni arranca Docker Dev. No hay publicación de imagen ni despliegue automático en estos workflows.
 
 Los navegadores de CI usan la imagen oficial mcr.microsoft.com/playwright:v1.64.1-noble fijada por digest, con dependencias preinstaladas. Mantener esa versión alineada con @playwright/test al actualizarlo.
+
+## Disparadores sin duplicados en develop
+
+Los cambios en develop se validan al abrir o actualizar su PR. CI y Security no se disparan también por push a develop. main y deploy conservan validación de push después de integrar cambios. Dependency review tiene un workflow exclusivo de PR, por lo que no genera jobs omitidos en pushes ni en ejecuciones semanales. Full stack conserva sus disparadores restringidos y credenciales fuera de los PR. Si develop todavía no tiene un PR, abrirlo para obtener las validaciones automáticas.
+
+La cancelación por concurrencia solo reemplaza ejecuciones anteriores cuando llegan nuevos commits al mismo PR; no cancela una copia del mismo commit por otro evento. El historial de ejecuciones antiguas se conserva.

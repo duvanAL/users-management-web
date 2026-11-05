@@ -1,7 +1,7 @@
 name: Security
 on:
   push:
-    branches: [main, develop, deploy]
+    branches: [main, deploy]
   pull_request:
   schedule:
     - cron: "21 6 * * 1"
@@ -26,14 +26,3 @@ jobs:
         with:
           languages: javascript-typescript
       - uses: github/codeql-action/analyze@b7b84b636b4f90c9b31da1bc5f72bfadd5b31410 # v3
-  dependencies:
-    timeout-minutes: 10
-    if: github.event_name == 'pull_request'
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4
-        with:
-          persist-credentials: false
-      - uses: actions/dependency-review-action@2031cfc080254a8a887f58cffee85186f0e49e48 # v4.9.0
-        with:
-          fail-on-severity: high
