@@ -39,4 +39,4 @@ Los navegadores de CI usan la imagen oficial mcr.microsoft.com/playwright:v1.64.
 
 Los cambios en develop se validan al abrir o actualizar su PR. CI y Security no se disparan también por push a develop. main y deploy conservan validación de push después de integrar cambios. Dependency review tiene un workflow exclusivo de PR, por lo que no genera jobs omitidos en pushes ni en ejecuciones semanales. Full stack conserva sus disparadores restringidos y credenciales fuera de los PR. Si develop todavía no tiene un PR, abrirlo para obtener las validaciones automáticas.
 
-La cancelación por concurrencia solo reemplaza ejecuciones anteriores cuando llegan nuevos commits al mismo PR; no cancela una copia del mismo commit por otro evento. El historial de ejecuciones antiguas se conserva.
+En el flujo develop → main, la cancelación por concurrencia reemplaza ejecuciones anteriores cuando llegan nuevos commits al mismo PR; ya no hay una copia del mismo commit por el evento push a develop. El historial de ejecuciones antiguas se conserva.
