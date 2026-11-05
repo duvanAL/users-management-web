@@ -1,5 +1,12 @@
 name: Full stack
 on:
+  push:
+    branches: [develop]
+    paths:
+      - .github/workflows/full-stack.yml
+      - infra/ci/backends.json
+      - infra/ci/patches/**
+      - infra/ci/prepare-stack.py
   workflow_dispatch:
 permissions:
   contents: read

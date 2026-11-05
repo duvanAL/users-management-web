@@ -19,7 +19,7 @@ CI ejecuta en push a develop/main/deploy y en PR, con permisos contents:read, ac
 
 ## Full stack en GitHub
 
-Workflow manual Full stack, limitado a develop/main/deploy. Requiere el secreto BACKEND_READ_TOKEN: token de lectura Contents:read para los cinco repositorios listados en infra/ci/backends.json (Files y Search son privados). El GITHUB_TOKEN del frontend no puede leer esos repositorios. No se usa ese secreto en PR ni en código de forks. El token solo se pasa al paso de preparación y no se escribe en archivos o configuración Git.
+Full stack permite ejecución manual en develop/main/deploy y se ejecuta automáticamente en pushes a develop que cambian su workflow, el manifiesto, los parches o el preparador de integración. No se ejecuta con secretos en eventos de PR. Requiere el secreto BACKEND_READ_TOKEN: token de lectura Contents:read para los cinco repositorios listados en infra/ci/backends.json (Files y Search son privados). El GITHUB_TOKEN del frontend no puede leer esos repositorios. No se usa ese secreto en PR ni en código de forks. El token solo se pasa al paso de preparación y no se escribe en archivos o configuración Git.
 
 Las fuentes se descargan por commit SHA. Los tres parches en infra/ci/patches contienen las adaptaciones Dev ya existentes (perfil propio, cuentas propias e historial). Evitan depender de carpetas locales no versionadas; no alteran los repositorios backend. Al integrar estos cambios en sus repositorios, actualizar el manifiesto y retirar los parches equivalentes.
 
