@@ -1,9 +1,7 @@
 name: Cloud release
 on:
-  workflow_run:
-    workflows: [CI]
+  push:
     branches: [deploy]
-    types: [completed]
   workflow_dispatch:
     inputs:
       bootstrap_only:
@@ -16,13 +14,13 @@ concurrency:
   group: cloud-release
   cancel-in-progress: false
 jobs:
-  publish:
+  checks:
     if: >-
-      (github.event_name == 'workflow_dispatch' &&
-       (github.ref == 'refs/heads/deploy' || (github.ref == 'refs/heads/main' && inputs.bootstrap_only))) ||
-      (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' &&
-       github.event.workflow_run.event == 'push' &&
-       github.event.workflow_run.head_repository.full_name == github.repository)
+      github.ref == 'refs/heads/deploy' ||
+      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/main' && inputs.bootstrap_only)
+    uses: ./.github/workflows/ci.yml
+  publish:
+    needs: checks
     runs-on: ubuntu-latest
     timeout-minutes: 20
     permissions:
@@ -33,7 +31,7 @@ jobs:
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
         with:
-          ref: ${{ github.event.workflow_run.head_sha || github.sha }}
+          ref: ${{ github.sha }}
           persist-credentials: false
       - id: image
         name: Pin image to the checked-out commit
