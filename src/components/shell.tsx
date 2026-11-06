@@ -16,7 +16,7 @@ import {
   Layers3,
 } from "lucide-react";
 import { api, labels } from "@/lib/client";
-const Context = createContext({ role: "MEMBER", userId: "" });
+const Context = createContext({ role: "MEMBER", userId: "", demoMode: false });
 export const useActor = () => useContext(Context);
 const nav = [
   ["/dashboard", "Resumen", LayoutDashboard],
@@ -31,10 +31,12 @@ export function Shell({
   children,
   role,
   userId,
+  demoMode = false,
 }: {
   children: React.ReactNode;
   role: string;
   userId: string;
+  demoMode?: boolean;
 }) {
   const path = usePathname();
   const [open, setOpen] = useState(false);
@@ -84,7 +86,7 @@ export function Shell({
   const section = nav.find((n) => path.startsWith(n[0]));
   const detail = path.startsWith("/users/");
   return (
-    <Context.Provider value={{ role, userId }}>
+    <Context.Provider value={{ role, userId, demoMode }}>
       <a href="#content" className="skip">
         Ir al contenido
       </a>
@@ -171,7 +173,7 @@ export function Shell({
               )}
             </nav>
             <div className="top-right">
-              <span className="dev-badge">DESARROLLO</span>
+              {demoMode && <span className="dev-badge">DESARROLLO</span>}
               <Link href="/profile" className="avatar" aria-label="Mi perfil">
                 {name.slice(0, 1)}
               </Link>

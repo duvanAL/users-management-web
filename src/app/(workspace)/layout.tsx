@@ -13,7 +13,11 @@ export default async function Layout({
     redirect("/login");
   }
   return (
-    <Shell role={s.role} userId={s.userId}>
+    <Shell
+      role={s.role}
+      userId={s.userId}
+      demoMode={process.env.WEB_DEMO_ACCESS === "true"}
+    >
       {children}
     </Shell>
   );
