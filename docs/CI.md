@@ -1,6 +1,6 @@
 # Integración continua
 
-CI ejecuta en push a main/deploy y en PR, con permisos contents:read, acciones fijadas por SHA, cancelación de ejecuciones obsoletas y tiempos máximos. No despliega ni accede a credenciales cloud.
+CI ejecuta directamente en push a main y en PR; Cloud release reutiliza sus mismos jobs en push a deploy, con permisos contents:read, acciones fijadas por SHA, cancelación de ejecuciones obsoletas y tiempos máximos. Los jobs de CI no despliegan ni acceden a credenciales cloud. Solo el job posterior de Cloud release usa OIDC limitado al recurso web.
 
 ## Controles automáticos
 
@@ -37,6 +37,6 @@ Los navegadores de CI usan la imagen oficial mcr.microsoft.com/playwright:v1.64.
 
 ## Disparadores sin duplicados en develop
 
-Los cambios en develop se validan al abrir o actualizar su PR. CI y Security no se disparan también por push a develop. main y deploy conservan validación de push después de integrar cambios. Dependency review tiene un workflow exclusivo de PR, por lo que no genera jobs omitidos en pushes ni en ejecuciones semanales. Full stack conserva sus disparadores restringidos y credenciales fuera de los PR. Si develop todavía no tiene un PR, abrirlo para obtener las validaciones automáticas.
+Los cambios en develop se validan al abrir o actualizar su PR. CI y Security no se disparan también por push a develop. main conserva CI por push; deploy ejecuta los mismos checks mediante Cloud release antes de publicar y desplegar, sin duplicar CI por push. Dependency review tiene un workflow exclusivo de PR, por lo que no genera jobs omitidos en pushes ni en ejecuciones semanales. Full stack conserva sus disparadores restringidos y credenciales fuera de los PR. Si develop todavía no tiene un PR, abrirlo para obtener las validaciones automáticas.
 
 En el flujo develop → main, la cancelación por concurrencia reemplaza ejecuciones anteriores cuando llegan nuevos commits al mismo PR; ya no hay una copia del mismo commit por el evento push a develop. El historial de ejecuciones antiguas se conserva.
