@@ -13,6 +13,18 @@ for (const file of readdirSync(".github/workflows").filter((f) =>
   if (workflow.permissions?.contents !== "read")
     throw new Error(file + ": default token must be read-only");
   for (const [name, job] of Object.entries(workflow.jobs)) {
+    if (job.uses) {
+      if (!/^\.\/\.github\/workflows\/[a-z0-9-]+\.yml$/.test(job.uses))
+        throw new Error(
+          file + "/" + name + ": reusable workflow must be local",
+        );
+      if (job.secrets === "inherit")
+        throw new Error(
+          file + "/" + name + ": do not inherit repository secrets",
+        );
+      // Timeouts and action pins are checked in the called workflow's own jobs.
+      continue;
+    }
     if (!job["timeout-minutes"])
       throw new Error(file + "/" + name + ": missing timeout");
     for (const step of job.steps || [])
