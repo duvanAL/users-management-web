@@ -27,6 +27,8 @@ The image is private in GHCR. Azure holds a read-packages registry credential as
 
 Environment variables in GitHub `production` are `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `AZURE_RESOURCE_GROUP`, `AZURE_WEB_APP`, `WEB_URL`. These are identifiers and URLs, not credentials. App secrets belong in Azure, not GitHub variables or `NEXT_PUBLIC_*`.
 
+For the first setup only, manually run `Cloud release` on the reviewed `main` with `bootstrap_only=true`. This publishes an image and deliberately omits deployment because the web resource does not yet exist. Create/configure the app using that image, then grant its resource-scoped OIDC role and promote to `deploy`. Normal releases do not use the bootstrap flag. Buildx uses the `docker-container` driver because SBOM/provenance attestations are unsupported by the runner's default Docker driver.
+
 ## Verification and rollback
 
 `/api/health` is liveness, not a complete dependency check. After release, verify actual authentication, own profile/accounts, authorization, search, file listing and notification history with a real user. Anonymous workspace routes must redirect to login and anonymous gateway requests must return 401. Never report local mock tests as proof of cloud connectivity.
