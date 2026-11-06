@@ -365,7 +365,8 @@
         "SEARCH_URL": "http://opensearch:8084",
         "NOTIFICATIONS_URL": "http://notifications:8082",
         "FILE_DOWNLOAD_ORIGIN": "http://s3:9090",
-        "WATCHPACK_POLLING": "true"
+        "WATCHPACK_POLLING": "true",
+        "WEB_DEMO_ACCESS": "true"
       },
       "volumes": [
         "./src:/app/src"

@@ -75,6 +75,7 @@ jobs:
           done
           curl --fail http://localhost:3000/api/health
           test "$(docker exec web id -u)" != "0"
-          curl --fail http://localhost:3000/login >/dev/null
+          curl --fail http://localhost:3000/login > /tmp/production-login.html
+          ! grep -q 'admin@dev.local\|Accesos de demostración' /tmp/production-login.html
       - if: always()
         run: docker logs web; docker rm -f web
