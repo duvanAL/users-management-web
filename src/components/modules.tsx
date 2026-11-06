@@ -1208,7 +1208,7 @@ export function Notifications({
   owner?: string;
   embedded?: boolean;
 }) {
-  const { role } = useActor();
+  const { role, demoMode } = useActor();
   const [status, setStatus] = useState("");
   const [offset, setOffset] = useState(0);
   const [selected, setSelected] = useState(owner || "");
@@ -1312,13 +1312,15 @@ export function Notifications({
         </State>
       </section>
       <p className="hint">
-        En Dev, los correos se procesan con un proveedor local de prueba.
+        {demoMode
+          ? "En Dev, los correos se procesan con un proveedor local de prueba."
+          : "Enviado indica que el proveedor aceptó el correo; no confirma su entrega al buzón."}
       </p>
     </>
   );
 }
 export function Dashboard() {
-  const { role, userId } = useActor();
+  const { role, userId, demoMode } = useActor();
   const me = useData<User>(g + "users/me");
   const users = useData(role === "MEMBER" ? null : g + "users/users");
   const accounts = useData(
@@ -1369,8 +1371,14 @@ export function Dashboard() {
       />
       <div className="welcome-strip">
         <span className="local-dot" />
-        <strong>Entorno de desarrollo</strong>
-        <p>Datos artificiales y servicios locales conectados.</p>
+        <strong>
+          {demoMode ? "Entorno de desarrollo" : "Plataforma de gestión"}
+        </strong>
+        <p>
+          {demoMode
+            ? "Datos artificiales y servicios locales conectados."
+            : "Usuarios, cuentas y archivos en un solo lugar."}
+        </p>
       </div>
       <section className="stats">
         {stats.map((s) => (
@@ -1461,7 +1469,10 @@ export function Dashboard() {
           <CheckCircle2 size={14} />
           Sesión protegida
         </span>
-        <span>Gestión · Desarrollo local</span>
+        <span>
+          Gestión ·{" "}
+          {demoMode ? "Desarrollo local" : "Plataforma de microservicios"}
+        </span>
       </footer>
     </>
   );
