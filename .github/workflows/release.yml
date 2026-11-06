@@ -44,3 +44,31 @@ jobs:
           tags: ${{ steps.image.outputs.image }}
           provenance: true
           sbom: true
+  deploy:
+    needs: publish
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: azure/login@8216e11d8cd9b42fe925c852af8e76311ff067ac
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Deploy immutable image
+        env:
+          IMAGE: ${{ needs.publish.outputs.image }}
+          RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+          APP_NAME: ${{ vars.AZURE_WEB_APP }}
+        run: |
+          az containerapp update --resource-group "$RESOURCE_GROUP" --name "$APP_NAME" --image "$IMAGE" --output none
+      - name: Verify public health and production login
+        env:
+          APP_URL: ${{ vars.WEB_URL }}
+        run: |
+          curl --fail --retry 12 --retry-all-errors --retry-delay 10 "$APP_URL/api/health"
+          curl --fail --retry 3 "$APP_URL/login" > /tmp/login.html
+          ! grep -q 'admin@dev.local\|Accesos de demostración' /tmp/login.html
