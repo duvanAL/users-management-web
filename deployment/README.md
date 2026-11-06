@@ -22,10 +22,12 @@ The image is private in GHCR. Azure holds a read-packages registry credential as
 1. Open a PR into `main`. CI checks formatting, TypeScript, unit coverage, browser tests, accessibility, dependency audit and a non-root production container. Security and dependency review run separately.
 2. Promote the reviewed commit to `deploy`. `Cloud release` first calls the same reusable CI workflow, then publishes `ghcr.io/duvanal/users-management-web:<commit-sha>` with SBOM and provenance. There is no duplicate standalone CI run on the deploy push.
 3. The deployment job uses the `production` GitHub environment. Its branch policy permits only `deploy`.
-4. Azure OIDC trusts only `repo:duvanAL/users-management-web:environment:production`. The user-assigned identity has Container Apps Contributor at the **web app resource only**, with no subscription-wide role and no database access.
+4. Azure OIDC trusts only `repo:duvanAL@200719598/users-management-web@1447389709:environment:production`. The user-assigned identity has Container Apps Contributor at the **web app resource only**, with no subscription-wide role and no database access.
 5. Deployment updates only the immutable image, preserving runtime secrets and configuration. The job checks `/api/health` and verifies that the login HTML contains no synthetic Dev access panel.
 
 Release runs directly on the `deploy` push so the environment branch policy sees `refs/heads/deploy`. Do not switch this deployment to `workflow_run`: that event uses the default branch context, which the production policy correctly rejects.
+
+The federated subject must match the exact value emitted by GitHub. This repository uses the immutable owner/repository IDs in the subject; do not substitute the older name-only format. Issuer is `https://token.actions.githubusercontent.com` and audience is `api://AzureADTokenExchange`.
 
 Environment variables in GitHub `production` are `AZURE_CLIENT_ID`, `AZURE_TENANT_ID`, `AZURE_SUBSCRIPTION_ID`, `AZURE_RESOURCE_GROUP`, `AZURE_WEB_APP`, `WEB_URL`. These are identifiers and URLs, not credentials. App secrets belong in Azure, not GitHub variables or `NEXT_PUBLIC_*`.
 
