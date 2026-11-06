@@ -95,7 +95,7 @@ export function Shell({
           className={open ? "sidebar open" : "sidebar"}
         >
           <Link href="/dashboard" className="brand">
-            <Layers3 /> Gestión<span>DEV</span>
+            <Layers3 /> Gestión
           </Link>
           <p className="nav-label">ESPACIO DE TRABAJO</p>
           <nav aria-label="Navegación principal">

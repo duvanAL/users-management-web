@@ -58,6 +58,7 @@ const child = spawn(process.execPath, [".next/standalone/server.js"], {
     PORT: "3100",
     HOSTNAME: "127.0.0.1",
     COOKIE_SECURE: "false",
+    WEB_DEMO_ACCESS: "true",
     WEB_ORIGINS: "http://127.0.0.1:3100",
     ...Object.fromEntries(
       ["USERS", "ACCOUNTS", "FILES", "SEARCH", "NOTIFICATIONS"].map((n) => [
