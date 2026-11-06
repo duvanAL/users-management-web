@@ -5,6 +5,11 @@ on:
     branches: [deploy]
     types: [completed]
   workflow_dispatch:
+    inputs:
+      bootstrap_only:
+        description: Publish the first image before the Azure web resource exists
+        type: boolean
+        default: false
 permissions:
   contents: read
 concurrency:
@@ -13,7 +18,8 @@ concurrency:
 jobs:
   publish:
     if: >-
-      (github.event_name == 'workflow_dispatch' && github.ref == 'refs/heads/deploy') ||
+      (github.event_name == 'workflow_dispatch' &&
+       (github.ref == 'refs/heads/deploy' || (github.ref == 'refs/heads/main' && inputs.bootstrap_only))) ||
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success' &&
        github.event.workflow_run.event == 'push' &&
        github.event.workflow_run.head_repository.full_name == github.repository)
@@ -37,6 +43,9 @@ jobs:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f
+        with:
+          driver: docker-container
       - uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8
         with:
           context: .
@@ -44,3 +53,32 @@ jobs:
           tags: ${{ steps.image.outputs.image }}
           provenance: true
           sbom: true
+  deploy:
+    needs: publish
+    if: ${{ !(github.event_name == 'workflow_dispatch' && inputs.bootstrap_only) }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - uses: azure/login@8216e11d8cd9b42fe925c852af8e76311ff067ac
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+      - name: Deploy immutable image
+        env:
+          IMAGE: ${{ needs.publish.outputs.image }}
+          RESOURCE_GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+          APP_NAME: ${{ vars.AZURE_WEB_APP }}
+        run: |
+          az containerapp update --resource-group "$RESOURCE_GROUP" --name "$APP_NAME" --image "$IMAGE" --output none
+      - name: Verify public health and production login
+        env:
+          APP_URL: ${{ vars.WEB_URL }}
+        run: |
+          curl --fail --retry 12 --retry-all-errors --retry-delay 10 "$APP_URL/api/health"
+          curl --fail --retry 3 "$APP_URL/login" > /tmp/login.html
+          ! grep -q 'admin@dev.local\|Accesos de demostración' /tmp/login.html
